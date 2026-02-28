@@ -10,7 +10,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // --- Pins ---
 const int btn1 = 2; 
 const int btn2 = 7; 
-const int pinR = 3; const int pinG = 5; const int pinB = 6;
+const int pinR = 3; 
+const int pinG = 5; 
+const int pinB = 6;
 const int pinLDR = A0;
 
 // --- State Machine ---
@@ -23,6 +25,11 @@ int calibIdx = 0;   // 0: Black, 1: White
 int rawPageIdx = 0; 
 unsigned long stateTimer = 0;
 char detectedColorName[12];
+// --- Battery & Power ---
+const int pinBat = A1;           // Pin to read battery (after 1:2 divider)
+unsigned long lastActivity = 0;  // For Screensaver
+const unsigned long SLEEP_TIME = 40000; // 30 seconds
+bool isSleeping = false;
 
 // Button Timing
 unsigned long btnTimer[2] = {0, 0};
@@ -66,7 +73,13 @@ void setup() {
 
 void loop() {
   handleButtons();
-  drawUI();
+  // Screensaver Trigger
+  if (!isSleeping && (millis() - lastActivity > SLEEP_TIME)) {
+    display.ssd1306_command(SSD1306_DISPLAYOFF);
+    isSleeping = true;
+  }
+
+  if (!isSleeping) drawUI();
 }
 
 
@@ -90,6 +103,13 @@ void checkButton(int pin, int idx) {
 }
 
 void executeAction(int btn, bool isLong) {
+  lastActivity = millis(); // Reset timer on any button interaction
+  
+  if (isSleeping) {
+    display.ssd1306_command(SSD1306_DISPLAYON);
+    isSleeping = false;
+    return; // Wake up only, don't trigger menu action yet
+  }
   switch (currentState) {
     case WELCOME:
       if (btn == 1 && isLong) currentState = MAIN_MENU;
@@ -140,7 +160,7 @@ void scanHardware() {
   for (int i = 0; i < 3; i++) {
     digitalWrite(pins[i], HIGH);
     delay(75); // 100ms pulse per spec
-    results[i] = analogRead(pinLDR);
+    results[i] = 1023 - analogRead(pinLDR);
     digitalWrite(pins[i], LOW);
   }
   currentScan.rawR = results[0];
@@ -170,9 +190,9 @@ void runDetection() {
     // Copy the entire struct from PROGMEM into our temporary 'entry' variable
     memcpy_P(&entry, &colorDB[i], sizeof(ColorEntry));
     
-    long dR = currentScan.r - entry.r;
-    long dG = currentScan.g - entry.g;
-    long dB = currentScan.b - entry.b;
+    long dR = (long)currentScan.r - entry.r;
+    long dG = (long)currentScan.g - entry.g;
+    long dB = (long)currentScan.b - entry.b;
     long dist = (dR * dR) + (dG * dG) + (dB * dB);
     
     if (dist < minDim) {
@@ -202,7 +222,7 @@ void startCalibration() {
 
 void performReset() {
   showLoading("Resetting...");
-  blackRef = {0,0,0}; whiteRef = {0,0,0};
+  blackRef = {0,0,0}; whiteRef = {1023,1023,1023};
   EEPROM.put(0, blackRef);
   EEPROM.put(sizeof(CalibData), whiteRef);
   display.clearDisplay();
