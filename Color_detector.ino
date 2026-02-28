@@ -26,9 +26,9 @@ int rawPageIdx = 0;
 unsigned long stateTimer = 0;
 char detectedColorName[12];
 // --- Battery & Power ---
-const int pinBat = A1;           // Pin to read battery (after 1:2 divider)
+const int pinBat = A1;           // Pin for battery
 unsigned long lastActivity = 0;  // For Screensaver
-const unsigned long SLEEP_TIME = 40000; // 30 seconds
+const unsigned long SLEEP_TIME = 30000; // 30 seconds
 bool isSleeping = false;
 
 // Button Timing
@@ -60,8 +60,11 @@ const ColorEntry colorDB[] PROGMEM = {
 const int DB_SIZE = 32;
 
 void setup() {
-  pinMode(btn1, INPUT); pinMode(btn2, INPUT);
-  pinMode(pinR, OUTPUT); pinMode(pinG, OUTPUT); pinMode(pinB, OUTPUT);
+  pinMode(btn1, INPUT); 
+  pinMode(btn2, INPUT);
+  pinMode(pinR, OUTPUT); 
+  pinMode(pinG, OUTPUT); 
+  pinMode(pinB, OUTPUT);
   
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
@@ -159,7 +162,7 @@ void scanHardware() {
   int results[3];
   for (int i = 0; i < 3; i++) {
     digitalWrite(pins[i], HIGH);
-    delay(75); // 100ms pulse per spec
+    delay(75); // 75ms pulse per spec
     results[i] = 1023 - analogRead(pinLDR);
     digitalWrite(pins[i], LOW);
   }
