@@ -265,7 +265,9 @@ void drawUI() {
   if (currentState == WELCOME) {
     display.setTextSize(2); display.setCursor(0,0); display.print("Team  ^w^\nMunchkins");
     display.setTextSize(1); display.setCursor(0,40); display.print("LDR Color Detector");
-    display.setCursor(0,55); display.setTextColor(BLACK, WHITE); display.print("  PROCEED  ");
+    display.drawLine(30, 55, 95, 55, WHITE);
+    display.setCursor(0, 56); display.print("     "); display.setTextColor(BLACK, WHITE); display.print("  PROCEED  ");
+    
   } 
   else if (currentState == MAIN_MENU) {
     display.setCursor(0, 0);
