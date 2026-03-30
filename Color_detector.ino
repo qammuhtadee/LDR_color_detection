@@ -159,13 +159,20 @@ void executeAction(int btn, bool isLong) {
 // 2. CORE LOGIC (KNN & ACQUISITION)
 void scanHardware() {
   int pins[] = {pinR, pinG, pinB};
-  int results[3];
+  int results[3]; // To store averaged R, G, B
+
   for (int i = 0; i < 3; i++) {
-    digitalWrite(pins[i], HIGH);
-    delay(75); // 75ms pulse per spec
-    results[i] = 1023 - analogRead(pinLDR);
-    digitalWrite(pins[i], LOW);
+    long sum = 0; // Use long to prevent overflow during summation
+    for (int j = 0; j < 3; j++) {
+      digitalWrite(pins[i], HIGH);
+      delay(100); // 100 ms pulse per spec
+      sum += (1023 - analogRead(pinLDR));
+      digitalWrite(pins[i], LOW);
+      delay(50); // Short delay between pulses for LDR recovery
+    }
+    results[i] = sum / 3; // Calculate average of 3 pulses
   }
+
   currentScan.rawR = results[0];
   currentScan.rawG = results[1];
   currentScan.rawB = results[2];
