@@ -13,7 +13,7 @@ const int btn2 = 7;
 const int pinR = 3; 
 const int pinG = 5; 
 const int pinB = 6;
-const int pinLDR = A0;
+const int pinLDR = A2;
 
 // --- State Machine ---
 enum AppState { WELCOME, MAIN_MENU, CALIB_SUB, CALIB_RUNNING, DETECTING, RAW_DATA, RESET_CONFIRM };
@@ -25,16 +25,16 @@ int calibIdx = 0;   // 0: Black, 1: White
 int rawPageIdx = 0; 
 unsigned long stateTimer = 0;
 char detectedColorName[12];
-// --- Battery & Power ---
-const int pinBat = A1;           // Pin for battery
-unsigned long lastActivity = 0;  // For Screensaver
-const unsigned long SLEEP_TIME = 30000; // 30 seconds
+
+// --- Screensaver ---
+unsigned long lastActivity = 0;
+const unsigned long SLEEP_TIME = 20000; // 20 seconds
 bool isSleeping = false;
 
 // Button Timing
 unsigned long btnTimer[2] = {0, 0};
 bool btnActive[2] = {false, false};
-const int LONG_PRESS_MS = 500;
+const int LONG_PRESS_MS = 500; // 500 ms long press duration
 
 // Data Structures
 struct CalibData { int r, g, b; };
@@ -60,8 +60,8 @@ const ColorEntry colorDB[] PROGMEM = {
 const int DB_SIZE = 32;
 
 void setup() {
-  pinMode(btn1, INPUT); 
-  pinMode(btn2, INPUT);
+  pinMode(btn1, INPUT_PULLUP); 
+  pinMode(btn2, INPUT_PULLUP);
   pinMode(pinR, OUTPUT); 
   pinMode(pinG, OUTPUT); 
   pinMode(pinB, OUTPUT);
@@ -93,7 +93,7 @@ void handleButtons() {
 }
 
 void checkButton(int pin, int idx) {
-  bool reading = digitalRead(pin);
+  bool reading = !digitalRead(pin);
   if (reading == HIGH && !btnActive[idx]) {
     btnActive[idx] = true;
     btnTimer[idx] = millis();
@@ -162,15 +162,23 @@ void scanHardware() {
   int results[3]; // To store averaged R, G, B
 
   for (int i = 0; i < 3; i++) {
-    long sum = 0; // Use long to prevent overflow during summation
-    for (int j = 0; j < 3; j++) {
-      digitalWrite(pins[i], HIGH);
-      delay(100); // 100 ms pulse per spec
-      sum += (1023 - analogRead(pinLDR));
-      digitalWrite(pins[i], LOW);
-      delay(50); // Short delay between pulses for LDR recovery
+    digitalWrite(pins[i], HIGH);
+    
+    // 1. Let the LDR fully stabilize to the new light bouncing off the surface
+    delay(150); 
+
+    long sum = 0;
+    // 2. Take rapid readings while the light is steady to filter electrical noise
+    for (int j = 0; j < 5; j++) {
+      sum += analogRead(pinLDR);
+      delay(3); // Tiny 2ms delay between ADC reads
     }
-    results[i] = sum / 3; // Calculate average of 3 pulses
+    results[i] = sum / 5; // Clean, stable average for this color
+
+    digitalWrite(pins[i], LOW);
+
+    // Give the LDR time to forget this color before the next one turns on.
+    delay(250); 
   }
 
   currentScan.rawR = results[0];
@@ -178,14 +186,9 @@ void scanHardware() {
   currentScan.rawB = results[2];
   
   // Scaling: Black=1, White=255
-  currentScan.r = map(results[0], blackRef.r, whiteRef.r, 1, 255);
-  currentScan.g = map(results[1], blackRef.g, whiteRef.g, 1, 255);
-  currentScan.b = map(results[2], blackRef.b, whiteRef.b, 1, 255);
-  
-  // Constrain to 1-255 range
-  currentScan.r = constrain(currentScan.r, 1, 255);
-  currentScan.g = constrain(currentScan.g, 1, 255);
-  currentScan.b = constrain(currentScan.b, 1, 255);
+  currentScan.r = constrain(map(results[0], blackRef.r, whiteRef.r, 1, 255), 1, 255);
+  currentScan.g = constrain(map(results[1], blackRef.g, whiteRef.g, 1, 255), 1, 255);
+  currentScan.b = constrain(map(results[2], blackRef.b, whiteRef.b, 1, 255), 1, 255);
 }
 
 void runDetection() {
