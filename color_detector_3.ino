@@ -215,7 +215,8 @@ void scanHardware() {
   float nG = (float)xG / (float)rangeG;
   float nB = (float)xB / (float)rangeB;
 
-  // gamma correction
+  // gamma correction 
+  // yet to be calibrated 
   nR = pow(nR, 0.6);
   nG = pow(nG, 0.6);
   nB = pow(nB, 0.6);
